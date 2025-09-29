@@ -431,50 +431,58 @@
         let tasks = {};
         let availableFields = [];
         
-        // Simple, fast sound functions
+        // Simple approach: Use different frequencies for different sounds
         function playIncrementSound() {
+            console.log('🔊 Playing increment sound');
+            // Simple approach - just log for now to test if function is called
             try {
-                // Create a simple high-pitched beep using Web Audio API
+                // Try using Web Audio API with a simple beep
                 const audioContext = new (window.AudioContext || window.webkitAudioContext)();
                 const oscillator = audioContext.createOscillator();
                 const gainNode = audioContext.createGain();
                 
-                oscillator.type = 'sine';
-                oscillator.frequency.value = 1000;
+                oscillator.frequency.value = 800;
+                oscillator.type = 'square';
                 
                 gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
-                gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.05);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
                 
                 oscillator.connect(gainNode);
                 gainNode.connect(audioContext.destination);
                 
                 oscillator.start(audioContext.currentTime);
-                oscillator.stop(audioContext.currentTime + 0.05);
+                oscillator.stop(audioContext.currentTime + 0.1);
+                
+                console.log('✅ Sound played successfully');
             } catch (error) {
-                // Silent fail - don't log to avoid console spam
+                console.log('❌ Sound failed:', error.message);
             }
         }
         
         function playDecrementSound() {
+            console.log('🔊 Playing decrement sound');
+            // Simple approach - just log for now to test if function is called
             try {
-                // Create a simple low-pitched beep using Web Audio API
+                // Try using Web Audio API with a simple beep
                 const audioContext = new (window.AudioContext || window.webkitAudioContext)();
                 const oscillator = audioContext.createOscillator();
                 const gainNode = audioContext.createGain();
                 
-                oscillator.type = 'sine';
                 oscillator.frequency.value = 400;
+                oscillator.type = 'square';
                 
                 gainNode.gain.setValueAtTime(0.2, audioContext.currentTime);
-                gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.08);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.15);
                 
                 oscillator.connect(gainNode);
                 gainNode.connect(audioContext.destination);
                 
                 oscillator.start(audioContext.currentTime);
-                oscillator.stop(audioContext.currentTime + 0.08);
+                oscillator.stop(audioContext.currentTime + 0.15);
+                
+                console.log('✅ Sound played successfully');
             } catch (error) {
-                // Silent fail - don't log to avoid console spam
+                console.log('❌ Sound failed:', error.message);
             }
         }
         
