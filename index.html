@@ -206,6 +206,10 @@
             display: flex;
             align-items: center;
             justify-content: center;
+            /* Mobile touch optimizations */
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
+            user-select: none;
         }
 
         .minus-btn {
@@ -226,6 +230,34 @@
 
         .counter-btn:active {
             transform: scale(0.95);
+        }
+        
+        /* Mobile-specific optimizations */
+        @media (max-width: 768px) {
+            .counter-btn {
+                width: 48px;
+                height: 48px;
+                font-size: 22px;
+            }
+            
+            .task {
+                padding: 16px;
+                margin-bottom: 10px;
+            }
+            
+            .add-btn {
+                padding: 16px 24px;
+                font-size: 18px;
+            }
+            
+            /* Disable hover effects on mobile */
+            .counter-btn:hover {
+                transform: none;
+            }
+            
+            .add-btn:hover {
+                transform: none;
+            }
         }
 
         .delete-btn {
@@ -432,6 +464,16 @@
         let tasks = {};
         let availableFields = [];
         
+        // Cache DOM elements for better mobile performance
+        let cachedElements = {};
+        
+        function getElement(id) {
+            if (!cachedElements[id]) {
+                cachedElements[id] = document.getElementById(id);
+            }
+            return cachedElements[id];
+        }
+        
         // Visual feedback instead of audio
         function playIncrementSound() {
             // No audio - just visual feedback
@@ -448,8 +490,12 @@
             updateDate();
             loadData();
             renderTasks();
-            testBackend();
-            loadTaskFields();
+            
+            // Defer non-critical operations for better mobile performance
+            setTimeout(() => {
+                testBackend();
+                loadTaskFields();
+            }, 100);
             
             // Add enter key support for dropdown
             document.getElementById('taskSelect').addEventListener('keypress', function(e) {
@@ -615,7 +661,12 @@
                 const taskElement = document.querySelector(`[data-task="${taskName}"] .task-count`);
                 if (taskElement) {
                     taskElement.textContent = tasks[taskName];
-                    taskElement.parentElement.parentElement.classList.add('fade-in');
+                    // Remove expensive DOM manipulation for mobile
+                    const taskContainer = taskElement.parentElement.parentElement;
+                    taskContainer.style.transform = 'scale(1.05)';
+                    setTimeout(() => {
+                        taskContainer.style.transform = 'scale(1)';
+                    }, 150);
                 }
                 
                 // Save data asynchronously (non-blocking)
@@ -624,7 +675,7 @@
         }
         
         function renderTasks() {
-            const taskList = document.getElementById('taskList');
+            const taskList = getElement('taskList');
             const taskNames = Object.keys(tasks);
             
             if (taskNames.length === 0) {
@@ -637,8 +688,15 @@
                 return;
             }
             
-            taskList.innerHTML = taskNames.map(taskName => `
-                <div class="task fade-in" data-task="${taskName}">
+            // Use document fragment for better mobile performance
+            const fragment = document.createDocumentFragment();
+            
+            taskNames.forEach(taskName => {
+                const taskDiv = document.createElement('div');
+                taskDiv.className = 'task';
+                taskDiv.setAttribute('data-task', taskName);
+                
+                taskDiv.innerHTML = `
                     <div class="task-info">
                         <div class="task-name">${taskName}</div>
                         <div class="task-count">${tasks[taskName]}</div>
@@ -648,8 +706,13 @@
                         <button class="counter-btn plus-btn" onclick="updateCounter('${taskName}', 1)">+</button>
                         <button class="delete-btn" onclick="deleteTask('${taskName}')">×</button>
                     </div>
-                </div>
-            `).join('');
+                `;
+                
+                fragment.appendChild(taskDiv);
+            });
+            
+            taskList.innerHTML = '';
+            taskList.appendChild(fragment);
         }
         
         async function endOfDay() {
