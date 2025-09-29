@@ -431,97 +431,50 @@
         let tasks = {};
         let availableFields = [];
         
-        // Audio context management
-        let audioContext = null;
-        let audioInitialized = false;
-        
-        function initAudio() {
-            if (!audioInitialized) {
-                try {
-                    audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                    audioInitialized = true;
-                } catch (error) {
-                    console.log('Audio not supported:', error);
-                }
-            }
-        }
-        
-        // Sound functions with fallback
+        // Simple, fast sound functions
         function playIncrementSound() {
-            // Try Web Audio API first
-            if (!audioInitialized) {
-                initAudio();
-                if (!audioContext) {
-                    // Fallback to simple beep
-                    console.log('Playing fallback increment sound');
-                    return;
-                }
-            }
-            
             try {
+                // Create a simple high-pitched beep using Web Audio API
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
                 const oscillator = audioContext.createOscillator();
                 const gainNode = audioContext.createGain();
+                
+                oscillator.type = 'sine';
+                oscillator.frequency.value = 1000;
+                
+                gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.05);
                 
                 oscillator.connect(gainNode);
                 gainNode.connect(audioContext.destination);
                 
-                oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
-                oscillator.frequency.exponentialRampToValueAtTime(1200, audioContext.currentTime + 0.1);
-                
-                gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
-                gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
-                
                 oscillator.start(audioContext.currentTime);
-                oscillator.stop(audioContext.currentTime + 0.1);
+                oscillator.stop(audioContext.currentTime + 0.05);
             } catch (error) {
-                console.log('Web Audio failed, trying fallback:', error);
-                // Fallback: try to play a simple beep using system sounds
-                try {
-                    const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBCuO1fPTgjE');
-                    audio.volume = 0.1;
-                    audio.play().catch(() => console.log('Audio play failed'));
-                } catch (fallbackError) {
-                    console.log('All audio methods failed:', fallbackError);
-                }
+                // Silent fail - don't log to avoid console spam
             }
         }
         
         function playDecrementSound() {
-            // Try Web Audio API first
-            if (!audioInitialized) {
-                initAudio();
-                if (!audioContext) {
-                    // Fallback to simple beep
-                    console.log('Playing fallback decrement sound');
-                    return;
-                }
-            }
-            
             try {
+                // Create a simple low-pitched beep using Web Audio API
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
                 const oscillator = audioContext.createOscillator();
                 const gainNode = audioContext.createGain();
+                
+                oscillator.type = 'sine';
+                oscillator.frequency.value = 400;
+                
+                gainNode.gain.setValueAtTime(0.2, audioContext.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.08);
                 
                 oscillator.connect(gainNode);
                 gainNode.connect(audioContext.destination);
                 
-                oscillator.frequency.setValueAtTime(400, audioContext.currentTime);
-                oscillator.frequency.exponentialRampToValueAtTime(200, audioContext.currentTime + 0.15);
-                
-                gainNode.gain.setValueAtTime(0.2, audioContext.currentTime);
-                gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.15);
-                
                 oscillator.start(audioContext.currentTime);
-                oscillator.stop(audioContext.currentTime + 0.15);
+                oscillator.stop(audioContext.currentTime + 0.08);
             } catch (error) {
-                console.log('Web Audio failed, trying fallback:', error);
-                // Fallback: try to play a simple beep using system sounds
-                try {
-                    const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBCuO1fPTgjE');
-                    audio.volume = 0.1;
-                    audio.play().catch(() => console.log('Audio play failed'));
-                } catch (fallbackError) {
-                    console.log('All audio methods failed:', fallbackError);
-                }
+                // Silent fail - don't log to avoid console spam
             }
         }
         
@@ -539,13 +492,6 @@
                     addTask();
                 }
             });
-            
-            // Initialize audio on first user interaction
-            document.addEventListener('click', function() {
-                if (!audioInitialized) {
-                    initAudio();
-                }
-            }, { once: true });
         });
         
         function updateDate() {
@@ -699,21 +645,23 @@
         function updateCounter(taskName, change) {
             if (tasks[taskName] !== undefined) {
                 tasks[taskName] = Math.max(0, tasks[taskName] + change);
-                saveData();
                 
-                // Play appropriate sound
-                if (change > 0) {
-                    playIncrementSound();
-                } else if (change < 0) {
-                    playDecrementSound();
-                }
-                
-                // Update only the specific task counter for smooth UX
+                // Update UI immediately for responsiveness
                 const taskElement = document.querySelector(`[data-task="${taskName}"] .task-count`);
                 if (taskElement) {
                     taskElement.textContent = tasks[taskName];
                     taskElement.parentElement.parentElement.classList.add('fade-in');
                 }
+                
+                // Play sound asynchronously (non-blocking)
+                if (change > 0) {
+                    setTimeout(() => playIncrementSound(), 0);
+                } else if (change < 0) {
+                    setTimeout(() => playDecrementSound(), 0);
+                }
+                
+                // Save data asynchronously (non-blocking)
+                setTimeout(() => saveData(), 0);
             }
         }
         
