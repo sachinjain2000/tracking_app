@@ -37,8 +37,8 @@ exports.handler = async (event, context) => {
       };
     }
 
-    // Fetch one record from Tasks table to get field names
-    const response = await fetch(`https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Tasks?maxRecords=1`, {
+    // Fetch table schema using Meta API to get field definitions
+    const response = await fetch(`https://api.airtable.com/v0/meta/bases/${AIRTABLE_BASE_ID}/tables`, {
       headers: {
         'Authorization': `Bearer ${AIRTABLE_TOKEN}`
       }
@@ -51,21 +51,25 @@ exports.handler = async (event, context) => {
         headers,
         body: JSON.stringify({
           success: false,
-          error: error.error?.message || 'Failed to fetch from Airtable'
+          error: error.error?.message || 'Failed to fetch table schema from Airtable'
         })
       };
     }
 
     const data = await response.json();
     
-    // Extract field names from the first record (excluding Date field)
+    // Find the Tasks table and extract field names (excluding Date field)
     let taskFields = [];
     
-    if (data.records && data.records.length > 0) {
-      const fields = data.records[0].fields;
-      taskFields = Object.keys(fields)
-        .filter(fieldName => fieldName.toLowerCase() !== 'date')
-        .sort(); // Sort alphabetically for better UX
+    if (data.tables && data.tables.length > 0) {
+      const tasksTable = data.tables.find(table => table.name === 'Tasks');
+      
+      if (tasksTable && tasksTable.fields) {
+        taskFields = tasksTable.fields
+          .filter(field => field.name.toLowerCase() !== 'date')
+          .map(field => field.name)
+          .sort(); // Sort alphabetically for better UX
+      }
     }
 
     return {
