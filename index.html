@@ -123,6 +123,16 @@
             border-color: var(--airtable);
         }
 
+        select.add-input {
+            cursor: pointer;
+            appearance: none;
+            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6,9 12,15 18,9'%3e%3c/polyline%3e%3c/svg%3e");
+            background-repeat: no-repeat;
+            background-position: right 12px center;
+            background-size: 16px;
+            padding-right: 40px;
+        }
+
         .add-btn {
             padding: 14px 20px;
             background: var(--accent);
@@ -311,6 +321,69 @@
             color: white;
             text-decoration: underline;
         }
+
+        .sync-status {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 12px 16px;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+
+        .sync-info {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .sync-icon {
+            font-size: 16px;
+        }
+
+        .sync-text {
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        .sync-status.connected .sync-icon {
+            color: var(--success);
+        }
+
+        .sync-status.connected .sync-text {
+            color: var(--success);
+        }
+
+        .sync-status.error .sync-icon {
+            color: var(--danger);
+        }
+
+        .sync-status.error .sync-text {
+            color: var(--danger);
+        }
+
+        .refresh-btn {
+            background: none;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 6px 10px;
+            cursor: pointer;
+            font-size: 16px;
+            color: var(--text-secondary);
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .refresh-btn:hover {
+            border-color: var(--airtable);
+            color: var(--airtable);
+            transform: rotate(90deg);
+        }
     </style>
 </head>
 <body>
@@ -328,9 +401,19 @@
                 <br><small>Admin needs to configure backend first.</small>
             </div>
             
+            <div class="sync-status" id="syncStatus">
+                <div class="sync-info">
+                    <span class="sync-icon">🔄</span>
+                    <span class="sync-text">Loading task fields...</span>
+                </div>
+                <button class="refresh-btn" onclick="loadTaskFields()" title="Refresh task list from Airtable">↻</button>
+            </div>
+            
             <div class="add-section">
                 <div class="add-form">
-                    <input type="text" id="taskInput" class="add-input" placeholder="Add task..." maxlength="30">
+                    <select id="taskSelect" class="add-input">
+                        <option value="">Select a task...</option>
+                    </select>
                     <button onclick="addTask()" class="add-btn">Add</button>
                 </div>
             </div>
@@ -346,6 +429,7 @@
     <script>
         // Global variables
         let tasks = {};
+        let availableFields = [];
         
         // Initialize app
         document.addEventListener('DOMContentLoaded', function() {
@@ -353,18 +437,14 @@
             loadData();
             renderTasks();
             testBackend();
+            loadTaskFields();
             
-            // Add enter key support
-            document.getElementById('taskInput').addEventListener('keypress', function(e) {
+            // Add enter key support for dropdown
+            document.getElementById('taskSelect').addEventListener('keypress', function(e) {
                 if (e.key === 'Enter') {
                     addTask();
                 }
             });
-            
-            // Auto-focus on task input
-            setTimeout(() => {
-                document.getElementById('taskInput').focus();
-            }, 100);
         });
         
         function updateDate() {
@@ -413,26 +493,95 @@
             notice.innerHTML = `⚠️ <strong>Setup Required:</strong> ${message}`;
         }
         
+        async function loadTaskFields() {
+            const syncStatus = document.getElementById('syncStatus');
+            const syncIcon = syncStatus.querySelector('.sync-icon');
+            const syncText = syncStatus.querySelector('.sync-text');
+            const refreshBtn = syncStatus.querySelector('.refresh-btn');
+            
+            try {
+                syncIcon.textContent = '🔄';
+                syncText.textContent = 'Loading task fields...';
+                refreshBtn.disabled = true;
+                
+                const response = await fetch('/.netlify/functions/get-task-fields');
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        availableFields = result.fields || [];
+                        populateTaskDropdown();
+                        
+                        syncIcon.textContent = '✅';
+                        syncText.textContent = `${availableFields.length} task fields loaded`;
+                        syncStatus.className = 'sync-status connected';
+                        
+                        if (availableFields.length === 0) {
+                            syncText.textContent = 'No task fields found in Airtable';
+                            syncStatus.className = 'sync-status error';
+                        }
+                    } else {
+                        throw new Error(result.error || 'Failed to load task fields');
+                    }
+                } else {
+                    throw new Error('Server error: ' + response.status);
+                }
+                
+            } catch (error) {
+                console.error('Error loading task fields:', error);
+                syncIcon.textContent = '❌';
+                syncText.textContent = 'Failed to load task fields';
+                syncStatus.className = 'sync-status error';
+                
+                // Show error in dropdown
+                const taskSelect = document.getElementById('taskSelect');
+                taskSelect.innerHTML = '<option value="">Error loading tasks</option>';
+            } finally {
+                refreshBtn.disabled = false;
+            }
+        }
+        
+        function populateTaskDropdown() {
+            const taskSelect = document.getElementById('taskSelect');
+            
+            // Clear existing options except the first one
+            taskSelect.innerHTML = '<option value="">Select a task...</option>';
+            
+            // Add available fields as options
+            availableFields.forEach(fieldName => {
+                const option = document.createElement('option');
+                option.value = fieldName;
+                option.textContent = fieldName;
+                taskSelect.appendChild(option);
+            });
+            
+            // Auto-focus on dropdown
+            setTimeout(() => {
+                taskSelect.focus();
+            }, 100);
+        }
+        
         function addTask() {
-            const taskInput = document.getElementById('taskInput');
-            const taskName = taskInput.value.trim();
+            const taskSelect = document.getElementById('taskSelect');
+            const taskName = taskSelect.value.trim();
             
             if (!taskName) {
-                taskInput.focus();
+                taskSelect.focus();
                 return;
             }
             
             if (tasks[taskName]) {
                 showStatus('Task already exists', 'error');
-                taskInput.focus();
+                taskSelect.focus();
                 return;
             }
             
             tasks[taskName] = 0;
-            taskInput.value = '';
+            taskSelect.value = '';
             saveData();
             renderTasks();
-            taskInput.focus();
+            taskSelect.focus();
         }
         
         function deleteTask(taskName) {
