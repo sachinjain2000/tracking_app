@@ -508,21 +508,24 @@
                 
                 if (response.ok) {
                     const result = await response.json();
+                    console.log('Task fields response:', result);
                     
-                    if (result.success) {
-                        availableFields = result.fields || [];
-                        populateTaskDropdown();
-                        
+                    availableFields = result.fields || [];
+                    populateTaskDropdown();
+                    
+                    if (availableFields.length > 0) {
                         syncIcon.textContent = '✅';
                         syncText.textContent = `${availableFields.length} task fields loaded`;
                         syncStatus.className = 'sync-status connected';
-                        
-                        if (availableFields.length === 0) {
-                            syncText.textContent = 'No task fields found in Airtable';
-                            syncStatus.className = 'sync-status error';
-                        }
                     } else {
-                        throw new Error(result.error || 'Failed to load task fields');
+                        syncIcon.textContent = '⚠️';
+                        syncText.textContent = result.error || 'No task fields found';
+                        syncStatus.className = 'sync-status error';
+                        
+                        // Show debug info in console
+                        if (result.debug) {
+                            console.log('Debug info:', result.debug);
+                        }
                     }
                 } else {
                     throw new Error('Server error: ' + response.status);
